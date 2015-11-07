@@ -8,7 +8,8 @@
 
 -spec init(list()) -> {ok, term()}.
 init([]) ->
-    {ok, undefined}.
+    {{trace, "/tmp"}, undefined}.
+    %% {ok, undefined}.
 
 -spec to_html(wrq:reqdata(), term()) -> {iodata(), wrq:reqdata(), term()}.
 to_html(ReqData, State) ->
