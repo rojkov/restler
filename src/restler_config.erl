@@ -8,6 +8,7 @@
 -spec dispatch() -> [webmachine_dispatcher:route()].
 dispatch() ->
     lists:flatten([
+        {["sensors", '*'], restler_sensors_resource, []},
         {[], restler_resource, []}
     ]).
 
