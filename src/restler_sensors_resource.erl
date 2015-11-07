@@ -12,4 +12,5 @@ init([]) ->
 
 -spec to_html(wrq:reqdata(), term()) -> {iodata(), wrq:reqdata(), term()}.
 to_html(ReqData, State) ->
+    error_logger:info_msg("Path tokens:~p~n", [wrq:path_tokens(ReqData)]),
     {"<html><body>Sensors resource loaded.</body></html>", ReqData, State}.
