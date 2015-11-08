@@ -1,4 +1,4 @@
--module(restler_sensors_resource).
+-module(restler_sensor_resource).
 -export([
     init/1,
     to_html/2
