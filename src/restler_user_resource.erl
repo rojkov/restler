@@ -46,8 +46,20 @@ verify_user_data(ReqData) ->
     end.
 
 store_user([Username | _], Document) ->
-    error_logger:info_msg("User name: ~p~n", [Username]),
     Pid = pooler:take_member(riak8087),
+    case riakc_pb_socket:get(Pid, {<<"default">>, <<"users">>}, list_to_binary(Username)) of
+        {error, notfound} ->
+            error_logger:info_msg("New User name: ~p  Data:~n~p~n", [Username, Document]),
+            Object = riakc_obj:new({<<"default">>, <<"users">>},
+                                   list_to_binary(Username),
+                                   Document,
+                                   <<"application/json">>),
+            riakc_pb_socket:put(Pid, Object);
+        {ok, Object} ->
+            error_logger:info_msg("Updating User name: ~p  Data:~n~p~n", [Username, Document]),
+            UpdatedObj = riakc_obj:update_value(Object, Document),
+            riakc_pb_socket:put(Pid, UpdatedObj)
+    end,
     pooler:return_member(riak8087, Pid, ok),
     true;
 store_user(_, _Document) ->
