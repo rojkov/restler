@@ -31,11 +31,11 @@ put_user(ReqData, State) ->
     case verify_user_data(ReqData) of
         undefined ->
             error_logger:info_msg("Unparsable input~n"),
-            {false, ReqData, State};
+            {{halt, 409}, ReqData, State};
         Body ->
             error_logger:info_msg("Putting user. Path tokens:~p~nData:~p~n",
                                   [wrq:path_tokens(ReqData), Body]),
-            {true, ReqData, State}
+            {store_user(wrq:path_tokens(ReqData), wrq:req_body(ReqData)), ReqData, State}
     end.
 
 verify_user_data(ReqData) ->
@@ -44,3 +44,12 @@ verify_user_data(ReqData) ->
     catch
         _:_ -> undefined
     end.
+
+store_user([Username | _], Document) ->
+    error_logger:info_msg("User name: ~p~n", [Username]),
+    Pid = pooler:take_member(riak8087),
+    pooler:return_member(riak8087, Pid, ok),
+    true;
+store_user(_, _Document) ->
+    error_logger:info_msg("Error. No user name~n"),
+    {halt, 409}.
