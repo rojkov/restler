@@ -12,7 +12,7 @@
 
 -include_lib("webmachine/include/webmachine.hrl").
 
--record(context, {riakconn}).
+-record(context, {riakconn, username}).
 
 -spec init(list()) -> {ok, term()}.
 init([]) ->
@@ -27,7 +27,9 @@ service_available(ReqData, State) ->
         error_no_members ->
             {false, ReqData, State};
         Pid ->
-            {true, ReqData, State#context{riakconn=Pid}}
+            {true, ReqData,
+             State#context{riakconn=Pid,
+                           username=proplists:get_value(username, wrq:path_info(ReqData))}}
     end.
 
 finish_request(ReqData, #context{riakconn=undefined} = State) ->
@@ -36,21 +38,28 @@ finish_request(ReqData, #context{riakconn=Pid} = State) ->
     pooler:return_member(riak8087, Pid, ok),
     {ok, ReqData, State#context{riakconn=undefined}}.
 
-delete_resource(ReqData, #context{riakconn=RiakPid} = State) ->
+delete_resource(ReqData, #context{riakconn=RiakPid, username=Username} = State) ->
     error_logger:info_msg("Deleting resource. Path tokens:~p Path info:~p~n", [wrq:path_tokens(ReqData), wrq:path_info(ReqData)]),
-    {delete_user(RiakPid,
-                 proplists:get_value(username, wrq:path_info(ReqData))),
+    {delete_user(RiakPid, Username),
      ReqData, State}.
 
 content_types_accepted(ReqData, State) ->
     {[{"application/json", put_user}], ReqData, State}.
 
 -spec to_html(wrq:reqdata(), term()) -> {iodata(), wrq:reqdata(), term()}.
-to_html(ReqData, State) ->
-    error_logger:info_msg("User resource. Path tokens:~p~n", [wrq:path_tokens(ReqData)]),
-    {"<html><body>User resource loaded.</body></html>", ReqData, State}.
+to_html(ReqData, #context{riakconn=RiakPid, username=Username} = State) ->
+    case riakc_pb_socket:get(RiakPid, {<<"default">>, <<"users">>}, list_to_binary(Username)) of
+        {error, notfound} ->
+            {{halt, 404}, ReqData, State};
+        {ok, Object} ->
+            {"<html><body>User resource loaded.<br>Username: " ++
+                Username ++ "<pre>" ++
+                binary_to_list(riakc_obj:get_value(Object)) ++
+                "</pre></body></html>",
+             ReqData, State}
+    end.
 
-put_user(ReqData, #context{riakconn=RiakPid} = State) ->
+put_user(ReqData, #context{riakconn=RiakPid, username=Username} = State) ->
     case verify_user_data(ReqData) of
         undefined ->
             error_logger:info_msg("Unparsable input~n"),
@@ -58,8 +67,7 @@ put_user(ReqData, #context{riakconn=RiakPid} = State) ->
         Body ->
             error_logger:info_msg("Putting user. Path tokens:~p~nData:~p~n",
                                   [wrq:path_tokens(ReqData), Body]),
-            {store_user(RiakPid,
-                        proplists:get_value(username, wrq:path_info(ReqData)),
+            {store_user(RiakPid, Username,
                         wrq:req_body(ReqData)),
              ReqData, State}
     end.
