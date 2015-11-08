@@ -37,8 +37,10 @@ finish_request(ReqData, #context{riakconn=Pid} = State) ->
     {ok, ReqData, State#context{riakconn=undefined}}.
 
 delete_resource(ReqData, #context{riakconn=RiakPid} = State) ->
-    error_logger:info_msg("Deleting resource. Path tokens:~p~n", [wrq:path_tokens(ReqData)]),
-    {delete_user(RiakPid, wrq:path_tokens(ReqData)), ReqData, State}.
+    error_logger:info_msg("Deleting resource. Path tokens:~p Path info:~p~n", [wrq:path_tokens(ReqData), wrq:path_info(ReqData)]),
+    {delete_user(RiakPid,
+                 proplists:get_value(username, wrq:path_info(ReqData))),
+     ReqData, State}.
 
 content_types_accepted(ReqData, State) ->
     {[{"application/json", put_user}], ReqData, State}.
@@ -56,7 +58,10 @@ put_user(ReqData, #context{riakconn=RiakPid} = State) ->
         Body ->
             error_logger:info_msg("Putting user. Path tokens:~p~nData:~p~n",
                                   [wrq:path_tokens(ReqData), Body]),
-            {store_user(RiakPid, wrq:path_tokens(ReqData), wrq:req_body(ReqData)), ReqData, State}
+            {store_user(RiakPid,
+                        proplists:get_value(username, wrq:path_info(ReqData)),
+                        wrq:req_body(ReqData)),
+             ReqData, State}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -69,7 +74,10 @@ verify_user_data(ReqData) ->
         _:_ -> undefined
     end.
 
-store_user(RiakPid, [Username | _], Document) ->
+store_user(_RiakPid, undefined, _Document) ->
+    error_logger:info_msg("Error. No user name~n"),
+    {halt, 409};
+store_user(RiakPid, Username, Document) ->
     case riakc_pb_socket:get(RiakPid, {<<"default">>, <<"users">>}, list_to_binary(Username)) of
         {error, notfound} ->
             error_logger:info_msg("New User name: ~p  Data:~n~p~n", [Username, Document]),
@@ -83,14 +91,11 @@ store_user(RiakPid, [Username | _], Document) ->
             UpdatedObj = riakc_obj:update_value(Object, Document),
             riakc_pb_socket:put(RiakPid, UpdatedObj)
     end,
-    true;
-store_user(_RiakPid, _, _Document) ->
-    error_logger:info_msg("Error. No user name~n"),
-    {halt, 409}.
+    true.
 
 
-delete_user(RiakPid, [Username | _]) ->
+delete_user(_, undefined) ->
+    {halt, 409};
+delete_user(RiakPid, Username) ->
     ok = riakc_pb_socket:delete(RiakPid, {<<"default">>, <<"users">>}, list_to_binary(Username)),
-    true;
-delete_user(_, _) ->
-    {halt, 409}.
+    true.

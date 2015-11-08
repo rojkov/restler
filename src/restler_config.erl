@@ -9,7 +9,7 @@
 dispatch() ->
     lists:flatten([
         {["sensors", '*'], restler_sensors_resource, []},
-        {["user", '*'], restler_user_resource, []},
+        {["users", username], restler_user_resource, []},
         {[], restler_resource, []}
     ]).
 
