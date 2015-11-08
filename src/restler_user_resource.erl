@@ -39,9 +39,8 @@ finish_request(ReqData, #context{riakconn=Pid} = State) ->
     {ok, ReqData, State#context{riakconn=undefined}}.
 
 delete_resource(ReqData, #context{riakconn=RiakPid, username=Username} = State) ->
-    error_logger:info_msg("Deleting resource. Path tokens:~p Path info:~p~n", [wrq:path_tokens(ReqData), wrq:path_info(ReqData)]),
-    {delete_user(RiakPid, Username),
-     ReqData, State}.
+    ok = riakc_pb_socket:delete(RiakPid, {<<"default">>, <<"users">>}, list_to_binary(Username)),
+    {true, ReqData, State}.
 
 content_types_accepted(ReqData, State) ->
     {[{"application/json", put_user}], ReqData, State}.
@@ -99,11 +98,4 @@ store_user(RiakPid, Username, Document) ->
             UpdatedObj = riakc_obj:update_value(Object, Document),
             riakc_pb_socket:put(RiakPid, UpdatedObj)
     end,
-    true.
-
-
-delete_user(_, undefined) ->
-    {halt, 409};
-delete_user(RiakPid, Username) ->
-    ok = riakc_pb_socket:delete(RiakPid, {<<"default">>, <<"users">>}, list_to_binary(Username)),
     true.
