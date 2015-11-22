@@ -23,7 +23,7 @@ allowed_methods(ReqData, State) ->
     {['GET', 'PUT', 'DELETE'], ReqData, State}.
 
 service_available(ReqData, State) ->
-    case pooler:take_member(riak8087) of
+    case pooler:take_group_member(riak8087) of
         error_no_members ->
             {false, ReqData, State};
         Pid ->
@@ -35,7 +35,7 @@ service_available(ReqData, State) ->
 finish_request(ReqData, #context{riakconn=undefined} = State) ->
     {ok, ReqData, State};
 finish_request(ReqData, #context{riakconn=Pid} = State) ->
-    pooler:return_member(riak8087, Pid, ok),
+    pooler:return_group_member(riak8087, Pid, ok),
     {ok, ReqData, State#context{riakconn=undefined}}.
 
 delete_resource(ReqData, #context{riakconn=RiakPid, username=Username} = State) ->
