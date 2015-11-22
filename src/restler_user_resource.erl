@@ -12,6 +12,7 @@
 
 -include_lib("webmachine/include/webmachine.hrl").
 
+% TODO: define username as a binary
 -record(context, {riakconn, username}).
 
 -spec init(list()) -> {ok, term()}.
